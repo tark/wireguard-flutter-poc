@@ -36,6 +36,30 @@ class _TunnelDetailsState extends State<TunnelDetails> {
   String _peerAllowedIp = initAllowedIp;
   String _peerPublicKey = initPublicKey;
   String _peerEndpoint = initEndpoint;
+  final _nameController = TextEditingController(
+    text: initName,
+  );
+  final _addressController = TextEditingController(
+    text: initAddress,
+  );
+  final _listenPortController = TextEditingController(
+    text: initPort,
+  );
+  final _dnsServerController = TextEditingController(
+    text: initDnsServer,
+  );
+  final _privateKeyController = TextEditingController(
+    text: initPrivateKey,
+  );
+  final _peerAllowedIpController = TextEditingController(
+    text: initAllowedIp,
+  );
+  final _peerPublicKeyController = TextEditingController(
+    text: initPublicKey,
+  );
+  final _peerEndpointController = TextEditingController(
+    text: initEndpoint,
+  );
   bool _connected = false;
   bool _scrolledToTop = true;
   bool _gettingStats = true;
@@ -51,8 +75,10 @@ class _TunnelDetailsState extends State<TunnelDetails> {
           try {
             final stats = StateChangeData.fromJson(jsonDecode(call.arguments));
             if (stats.tunnelState) {
+              setState(() => _connected = true);
               _startGettingStats(context);
             } else {
+              setState(() => _connected = false);
               _stopGettingStats();
             }
           } catch (e) {
@@ -94,57 +120,57 @@ class _TunnelDetailsState extends State<TunnelDetails> {
                     _divider('Tunnel'),
                     _input(
                       hint: 'Tunnel name',
-                      initialValue: initName,
                       enabled: false,
+                      controller: _nameController,
                       onChanged: (v) => setState(() => _name = v),
                     ),
                     const Vertical.small(),
                     _input(
                       hint: 'Address',
-                      initialValue: initAddress,
                       enabled: !_connected,
+                      controller: _addressController,
                       onChanged: (v) => setState(() => _address = v),
                     ),
                     const Vertical.small(),
                     _input(
                       hint: 'Listen port',
-                      initialValue: initPort,
                       enabled: !_connected,
+                      controller: _listenPortController,
                       onChanged: (v) => setState(() => _listenPort = v),
                     ),
                     const Vertical.small(),
                     _input(
                       hint: 'DNS server',
-                      initialValue: initDnsServer,
                       enabled: !_connected,
+                      controller: _dnsServerController,
                       onChanged: (v) => setState(() => _dnsServer = v),
                     ),
                     const Vertical.small(),
                     _input(
                       hint: 'Private key',
-                      initialValue: initPrivateKey,
                       enabled: !_connected,
+                      controller: _privateKeyController,
                       onChanged: (v) => setState(() => _privateKey = v),
                     ),
                     _divider('Peer'),
                     _input(
                       hint: 'Peer allowed IP',
-                      initialValue: initAllowedIp,
                       enabled: !_connected,
+                      controller: _peerAllowedIpController,
                       onChanged: (v) => setState(() => _peerAllowedIp = v),
                     ),
                     const Vertical.small(),
                     _input(
                       hint: 'Peer public key',
-                      initialValue: initPublicKey,
                       enabled: !_connected,
+                      controller: _peerPublicKeyController,
                       onChanged: (v) => setState(() => _peerPublicKey = v),
                     ),
                     const Vertical.small(),
                     _input(
                       hint: 'Peer endpoint',
-                      initialValue: initEndpoint,
                       enabled: !_connected,
+                      controller: _peerEndpointController,
                       onChanged: (v) => setState(() => _peerEndpoint = v),
                     ),
                     Padding(
@@ -228,9 +254,9 @@ class _TunnelDetailsState extends State<TunnelDetails> {
           ),
         ).toJson()),
       );
-      if (result == true) {
+      /*if (result == true) {
         setState(() => _connected = !_connected);
-      }
+      }*/
     } on PlatformException catch (e) {
       l('_setState', e.toString());
       _showError(context, e.toString());
@@ -288,9 +314,9 @@ class _TunnelDetailsState extends State<TunnelDetails> {
 
   Widget _input({
     required String hint,
-    required String initialValue,
     required ValueChanged<String> onChanged,
     bool enabled = true,
+    required TextEditingController controller,
   }) {
     return Container(
       padding: AppPadding.horizontalSmall,
@@ -329,9 +355,7 @@ class _TunnelDetailsState extends State<TunnelDetails> {
               textStyle: TextStyle(fontWeight: FontWeight.w600),
               height: 1.0,
             ),
-            controller: TextEditingController(
-              text: initialValue,
-            ),
+            controller: controller,
             onChanged: onChanged,
           ),
           const Vertical.micro(),
