@@ -58,6 +58,7 @@ flutter {
 dependencies {
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:$kotlin_version"
   implementation 'com.wireguard.android:tunnel:1.0.20210211'
-  implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3"
+  implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3'
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.3"
+  implementation 'com.beust:klaxon:5.5'
 }
