@@ -29,6 +29,12 @@ apply plugin: 'kotlin-kapt'
 android {
   compileSdkVersion 30
 
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_1_8
+    targetCompatibility JavaVersion.VERSION_1_8
+    coreLibraryDesugaringEnabled = true
+  }
+
   sourceSets {
     main.java.srcDirs += 'src/main/kotlin'
   }
@@ -61,4 +67,6 @@ dependencies {
   implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3'
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.3"
   implementation 'com.beust:klaxon:5.5'
+
+  coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.0.10"
 }
