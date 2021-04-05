@@ -1,5 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="pro.tark.wireguard_plugin_example">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <permission android:name="${applicationId}.permission.CONTROL_TUNNELS"
+        android:description="@string/permission_description"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/permission_label"
+        android:protectionLevel="dangerous" />
    <application
         android:label="wireguard_plugin_example"
         android:icon="@mipmap/ic_launcher">

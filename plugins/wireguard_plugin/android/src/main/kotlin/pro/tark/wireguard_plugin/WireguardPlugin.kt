@@ -1,36 +1,31 @@
 package pro.tark.wireguard_plugin
 
 import android.app.Activity
-import android.app.Application
-import android.content.Context
-import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.annotation.NonNull
 import com.beust.klaxon.Klaxon
-import com.wireguard.android.backend.Backend
-import com.wireguard.android.backend.BackendException
-import com.wireguard.android.backend.Tunnel
+import com.wireguard.android.backend.*
 import com.wireguard.android.util.ModuleLoader
 import com.wireguard.android.util.RootShell
 import com.wireguard.android.util.ToolsInstaller
 import com.wireguard.config.Config
 import com.wireguard.config.Interface
 import com.wireguard.config.Peer
-
 import io.flutter.embedding.engine.plugins.FlutterPlugin
+import io.flutter.embedding.engine.plugins.activity.ActivityAware
+import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
-import io.flutter.plugin.common.PluginRegistry.Registrar
 import kotlinx.coroutines.*
 import java.util.*
 
 /** WireguardPlugin */
-class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
+class WireguardPlugin : FlutterPlugin, MethodCallHandler, ActivityAware {
     private lateinit var channel: MethodChannel
-    private lateinit var applicationContext: Context
+    private lateinit var applicationContext: Activity
     private val permissionRequestCode = 10014
     private val futureBackend = CompletableDeferred<Backend>()
     private val scope = CoroutineScope(Job() + Dispatchers.Main.immediate)
@@ -38,8 +33,7 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
     private lateinit var moduleLoader: ModuleLoader
     private lateinit var rootShell: RootShell
     private lateinit var toolsInstaller: ToolsInstaller
-    private var havePermission = false
-    private var methodChannel: MethodChannel? = null
+    // private var havePermission = false
 
     // Have to keep tunnels, because WireGuard requires to use the _same_
     // instance of a tunnel every time you change the state.
@@ -64,16 +58,20 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "tark.pro/wireguard-flutter")
         channel.setMethodCallHandler(this)
-        applicationContext = flutterPluginBinding.applicationContext
+        // applicationContext = flutterPluginBinding.applicationContext
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+        /*
         if (!havePermission) {
             flutterError(result, "Have no permission to configure VPN")
             return
         }
+         */
 
         when (call.method) {
+            "initialize" -> handleInitialize(result)
+            "requestPermission" -> handleRequestPermission(result)
             "getTunnelNames" -> handleGetNames(result)
             "setState" -> handleSetState(call.arguments, result)
             "getStats" -> handleGetStats(call.arguments, result)
@@ -85,26 +83,75 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(null)
     }
 
-    private fun flutterSuccess(result: MethodChannel.Result, o: Any) {
+    private fun flutterSuccess(result: Result, o: Any) {
         scope.launch(Dispatchers.Main) {
             result.success(o)
         }
     }
 
-    private fun flutterError(result: MethodChannel.Result, error: String) {
+    private fun flutterError(result: Result, error: String) {
         scope.launch(Dispatchers.Main) {
             result.error(error, null, null)
         }
     }
 
-    private fun flutterNotImplemented(result: MethodChannel.Result) {
+    private fun flutterNotImplemented(result: Result) {
         scope.launch(Dispatchers.Main) {
             result.notImplemented()
         }
     }
 
-    private fun handleSetState(arguments: Any, result: MethodChannel.Result) {
+    private fun handleInitialize(result: Result) {
+        rootShell = RootShell(applicationContext)
+        toolsInstaller = ToolsInstaller(applicationContext, rootShell)
+        moduleLoader = ModuleLoader(applicationContext, rootShell, USER_AGENT)
 
+        scope.launch(Dispatchers.IO) {
+            try {
+                backend = createBackend()
+                futureBackend.complete(backend!!)
+            } catch (e: Throwable) {
+                Log.e(TAG, Log.getStackTraceString(e))
+            }
+        }
+        flutterSuccess(result, true)
+    }
+
+    private fun createBackend(): Backend {
+        var backend: Backend? = null
+        var didStartRootShell = false
+        if (!ModuleLoader.isModuleLoaded() && moduleLoader.moduleMightExist()) {
+            try {
+                rootShell.start()
+                didStartRootShell = true
+                moduleLoader.loadModule()
+            } catch (ignored: Exception) {
+                Log.e(TAG, Log.getStackTraceString(ignored))
+            }
+        }
+        if (ModuleLoader.isModuleLoaded()) {
+            try {
+                if (!didStartRootShell) {
+                    rootShell.start()
+                }
+                val wgQuickBackend = WgQuickBackend(applicationContext, rootShell, toolsInstaller)
+                //wgQuickBackend.setMultipleTunnels(UserKnobs.multipleTunnels.first())
+                backend = wgQuickBackend
+                // what is that? I totally did not understand
+                /*UserKnobs.multipleTunnels.onEach {
+                  wgQuickBackend.setMultipleTunnels(it)
+                }.launchIn(coroutineScope)*/
+            } catch (ignored: Exception) {
+                Log.e(TAG, Log.getStackTraceString(ignored))
+            }
+        }
+        if (backend == null) {
+            backend = GoBackend(applicationContext)
+        }
+        return backend
+    }
+
+    private fun handleSetState(arguments: Any, result: Result) {
         scope.launch(Dispatchers.IO) {
             try {
 
@@ -122,7 +169,7 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
                                         .parseListenPort(params.tunnel.listenPort)
                                         .parseDnsServers(params.tunnel.dnsServer)
                                         .parsePrivateKey(params.tunnel.privateKey)
-                                        .build(),
+                                        .build()
                         )
                         .addPeer(
                                 Peer.Builder()
@@ -137,7 +184,7 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
                         tunnel(params.tunnel.name) { state ->
                             scope.launch(Dispatchers.Main) {
                                 Log.i(TAG, "onStateChange - $state")
-                                methodChannel?.invokeMethod(
+                                channel.invokeMethod(
                                         "onStateChange",
                                         Klaxon().toJsonString(
                                                 StateChangeData(params.tunnel.name, state == Tunnel.State.UP)
@@ -160,7 +207,7 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 
-    private fun handleGetNames(result: MethodChannel.Result) {
+    private fun handleGetNames(result: Result) {
         scope.launch(Dispatchers.IO) {
             try {
                 val names = futureBackend.await().runningTunnelNames
@@ -173,7 +220,7 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
         }
     }
 
-    private fun handleGetStats(arguments: Any?, result: MethodChannel.Result) {
+    private fun handleGetStats(arguments: Any?, result: Result) {
         val tunnelName = arguments?.toString()
         if (tunnelName == null || tunnelName.isEmpty()) {
             flutterError(result, "Provide tunnel name to get statistics")
@@ -205,6 +252,45 @@ class WireGuardPlugin : FlutterPlugin, MethodCallHandler {
     private fun tunnel(name: String, callback: StateChangeCallback? = null): Tunnel {
         return tunnels.getOrPut(name, { MyTunnel(name, callback) })
     }
+
+
+    /**
+     * for VPN permission request
+     */
+    private var requestPermissionResult: Result? = null
+
+    private fun handleRequestPermission(result: Result) {
+        val intent = GoBackend.VpnService.prepare(applicationContext)
+        if (intent != null) {
+            applicationContext.startActivityForResult(intent, permissionRequestCode)
+            if (requestPermissionResult == null) {
+                requestPermissionResult = result
+            } else {
+                flutterError(result, "permission already requested, wait")
+            }
+        } else {
+            flutterSuccess(result, true)
+        }
+    }
+
+    override fun onAttachedToActivity(binding: ActivityPluginBinding) {
+        applicationContext = binding.activity
+        binding.addActivityResultListener { requestCode, resultCode, _ ->
+            Log.i(TAG, "on activity result $requestCode, $resultCode")
+            if ((requestCode == permissionRequestCode) && requestPermissionResult != null) {
+                flutterSuccess(requestPermissionResult!!, resultCode == Activity.RESULT_OK)
+            }
+            return@addActivityResultListener requestCode == permissionRequestCode
+        }
+    }
+
+    override fun onDetachedFromActivityForConfigChanges() {}
+
+    override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
+        onAttachedToActivity(binding)
+    }
+
+    override fun onDetachedFromActivity() {}
 }
 
 typealias StateChangeCallback = (Tunnel.State) -> Unit

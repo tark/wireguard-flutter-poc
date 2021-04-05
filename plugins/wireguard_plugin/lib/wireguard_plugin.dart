@@ -14,12 +14,23 @@ class WireguardPlugin {
 
   /// no need to close, since it's static controller
   // ignore: close_sinks
-  static final _tunnelsStateController = StreamController.broadcast();
+  static final _tunnelsStateController =
+      StreamController<StateChangeData>.broadcast();
 
-  static Stream get tunnelState => _tunnelsStateController.stream;
+  static Stream<StateChangeData> get tunnelState =>
+      _tunnelsStateController.stream;
 
-  static initialize() {
+  static Future<bool> requestPermission() async {
+    print('WireguardPlugin requestPermission ');
+    final result = await _channel.invokeMethod('requestPermission');
+    print('WireguardPlugin requestPermission $result');
+    return result;
+  }
+
+  static Future<bool> initialize() async {
+    print('WireguardPlugin initialize');
     _channel.setMethodCallHandler((call) async {
+      print('WireguardPlugin MethodCallHandler $call');
       switch (call.method) {
         case 'onStateChange':
           try {
@@ -35,12 +46,16 @@ class WireguardPlugin {
           break;
       }
     });
+    final result = await _channel.invokeMethod('initialize');
+    print('WireguardPlugin initialize $result');
+    return result;
   }
 
   static Future setState({
     required bool isConnected,
     required Tunnel tunnel,
   }) async {
+    print('WireguardPlugin setState');
     final result = await _channel.invokeMethod(
       'setState',
       jsonEncode(SetStateParams(
@@ -48,17 +63,22 @@ class WireguardPlugin {
         tunnel: tunnel,
       ).toJson()),
     );
+    print('WireguardPlugin setState $result');
     return result;
   }
 
   static Future getTunnelNames() async {
+    print('WireguardPlugin getTunnelNames ');
     final result = await _channel.invokeMethod('getTunnelNames');
+    print('WireguardPlugin getTunnelNames $result');
     return result;
   }
 
   static Future<TunnelStats> getTunnelUsageStats(String tunnelName) async {
+    print('WireguardPlugin getTunnelUsageStats $tunnelName');
     final result = await _channel.invokeMethod('getStats', tunnelName);
     final stats = TunnelStats.fromJson(jsonDecode(result));
+    print('WireguardPlugin getTunnelUsageStats $stats');
     return stats;
   }
 }
