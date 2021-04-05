@@ -12,8 +12,6 @@ class WireguardPlugin {
   static const MethodChannel _channel =
       const MethodChannel('tark.pro/wireguard-flutter');
 
-  static bool _callHandlerWasInitialized = false;
-
   /// no need to close, since it's static controller
   // ignore: close_sinks
   static final _tunnelsStateController = StreamController.broadcast();
