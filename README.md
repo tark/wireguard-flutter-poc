@@ -15,16 +15,3 @@ For help getting started with Flutter, view our
 [online documentation](https://flutter.dev/docs), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
-# Android related
-
-The WireGuard library makes use of Java 8 features, so we need to do this:
-`
-compileOptions {
-    sourceCompatibility JavaVersion.VERSION_1_8
-    targetCompatibility JavaVersion.VERSION_1_8
-    coreLibraryDesugaringEnabled = true
-}
-dependencies {
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.0.10"
-}
-`

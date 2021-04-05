@@ -30,6 +30,7 @@ android {
   compileSdkVersion 30
 
   compileOptions {
+    /// 3 options below to run wireguard on Android 25 or lower
     sourceCompatibility JavaVersion.VERSION_1_8
     targetCompatibility JavaVersion.VERSION_1_8
     coreLibraryDesugaringEnabled = true
@@ -68,5 +69,6 @@ dependencies {
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.4.3"
   implementation 'com.beust:klaxon:5.5'
 
+  /// to run wireguard on Android 25 or lower
   coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:1.0.10"
 }
